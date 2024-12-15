@@ -4,10 +4,12 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.preprocessing import StandardScaler
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import r2_score
+import io
+import base64
 
 # Initialize the Dash app
 app = dash.Dash(__name__)
@@ -87,13 +89,13 @@ app.layout = html.Div([
     State('upload-data', 'filename')
 )
 def handle_upload(contents, filename):
+    global global_data
     if contents is None:
         return "", [], [], []
 
     content_type, content_string = contents.split(',')
-    decoded = pd.read_csv(pd.compat.StringIO(pd.util.b64decode(content_string).decode()))
-    global global_data
-    global_data = decoded
+    decoded = base64.b64decode(content_string)  # Decode the content
+    global_data = pd.read_csv(io.StringIO(decoded.decode('utf-8')))  # Read into a DataFrame
 
     numeric_columns = [{'label': col, 'value': col} for col in global_data.select_dtypes(include=['float64', 'int64']).columns]
     categorical_columns = [{'label': col, 'value': col} for col in global_data.select_dtypes(include=['object', 'category']).columns]
@@ -107,7 +109,7 @@ def handle_upload(contents, filename):
      Input('categorical-radio', 'value')]
 )
 def update_charts(target, categorical):
-    if global_data is None or target is None:
+    if global_data is None or target is None or categorical is None:
         return {}, {}
 
     avg_target = global_data.groupby(categorical)[target].mean().reset_index()
@@ -185,4 +187,5 @@ def predict_target(n_clicks, input_values, features):
 # Run the app
 if __name__ == "__main__":
     app.run_server(debug=False, host="0.0.0.0", port=8080)
+
 

@@ -13,14 +13,12 @@ import base64
 app = dash.Dash(__name__)
 app.title = "Data Analysis and Prediction App"
 
-# Global variable to store uploaded dataset
 global_data = None
 
-# Define app layout
 app.layout = html.Div([
     html.H1("Group 10's Data Analysis and Prediction App", style={'textAlign': 'center'}),
 
-    # Upload Component
+    # To upload layout
     dcc.Upload(
         id='upload-data',
         children=html.Div(['Drag and Drop or ', html.A('Select a CSV File')]),
@@ -77,7 +75,7 @@ app.layout = html.Div([
     ], style={'margin': '20px'})
 ])
 
-# Callbacks
+# Dash callbacks
 @app.callback(
     [Output('upload-feedback', 'children'),
      Output('target-dropdown', 'options'),
@@ -92,8 +90,8 @@ def handle_upload(contents, filename):
         return "", [], [], []
 
     content_type, content_string = contents.split(',')
-    decoded = base64.b64decode(content_string)  # Decode the content
-    global_data = pd.read_csv(io.StringIO(decoded.decode('utf-8')))  # Read into a DataFrame
+    decoded = base64.b64decode(content_string)  
+    global_data = pd.read_csv(io.StringIO(decoded.decode('utf-8')))  
 
     numeric_columns = [{'label': col, 'value': col} for col in global_data.select_dtypes(include=['float64', 'int64']).columns]
     categorical_columns = [{'label': col, 'value': col} for col in global_data.select_dtypes(include=['object', 'category']).columns]
@@ -111,14 +109,14 @@ def update_charts(target, categorical):
         return {}, {}
 
     try:
-        # Bar Chart 1: Average Target by Category
+        # Bar Chart 1
         if global_data[categorical].dtype not in ['object', 'category']:
-            return {}, {}  # Ensure the selected categorical variable is valid
+            return {}, {}  
 
         avg_target = global_data.groupby(categorical)[target].mean().reset_index()
 
-        # Bar Chart 2: Correlation with Target (Numeric Columns Only)
-        numeric_data = global_data.select_dtypes(include=['number'])  # Filter only numeric columns
+        # Bar Chart 2
+        numeric_data = global_data.select_dtypes(include=['number'])  s
         if target not in numeric_data.columns:
             return {}, {}
 
@@ -150,16 +148,16 @@ def train_model(n_clicks, features, target):
     if n_clicks is None or global_data is None or not features or not target:
         return "Please upload data, select features, and a target variable."
 
-    # Prepare data
+    # Prepping the data
     X = global_data[features].copy()
     y = global_data[target]
 
-    # Handle missing values
+    # missing values handling
     for col in X.columns:
         if X[col].dtype in ['float64', 'int64']:
-            X[col] = X[col].fillna(X[col].mean())  # Fill numeric columns with mean
+            X[col] = X[col].fillna(X[col].mean())  
         elif X[col].dtype in ['object', 'category']:
-            X[col] = X[col].fillna(X[col].mode()[0])  # Fill categorical columns with mode
+            X[col] = X[col].fillna(X[col].mode()[0])  
 
     # Encode categorical variables
     for col in X.select_dtypes(include=['object', 'category']).columns:
@@ -206,12 +204,12 @@ def predict_target(n_clicks, input_values, features):
 
     pipeline = GradientBoostingRegressor(random_state=42)
     X = global_data[features]
-    y = global_data.iloc[:, 0]  # Replace with your target variable
+    y = global_data.iloc[:, 0]  
     pipeline.fit(X, y)
     prediction = pipeline.predict([input_values])[0]
 
     return f"Predicted Target Value: {prediction:.2f}"
 
-# Run the app
+# To host the app
 if __name__ == "__main__":
-    app.run_server(debug=False, host="0.0.0.0", port=8080)
+    app.run_server(debug=False, host="0.0.0.0", port=8080)"

@@ -8,6 +8,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import r2_score
+from sklearn.impute import SimpleImputer
 import io
 import base64
 
@@ -112,35 +113,19 @@ def update_charts(target, categorical):
     if global_data is None or target is None or categorical is None:
         return {}, {}
 
-    try:
-        # Bar Chart 1: Average Target by Category
-        if global_data[categorical].dtype not in ['object', 'category']:
-            return {}, {}  # Ensure the selected categorical variable is valid
+    avg_target = global_data.groupby(categorical)[target].mean().reset_index()
+    correlation = global_data.corr()[target].abs().sort_values(ascending=False).reset_index()
 
-        avg_target = global_data.groupby(categorical)[target].mean().reset_index()
+    bar_chart_1 = {
+        'data': [{'x': avg_target[categorical], 'y': avg_target[target], 'type': 'bar'}],
+        'layout': {'title': f"Average {target} by {categorical}"}
+    }
+    bar_chart_2 = {
+        'data': [{'x': correlation['index'], 'y': correlation[target], 'type': 'bar'}],
+        'layout': {'title': f"Correlation of Features with {target}"}
+    }
 
-        # Bar Chart 2: Correlation with Target (Numeric Columns Only)
-        numeric_data = global_data.select_dtypes(include=['number'])  # Filter only numeric columns
-        if target not in numeric_data.columns:
-            return {}, {}
-
-        correlation = numeric_data.corr()[[target]].abs().sort_values(by=target, ascending=False).reset_index()
-
-        # Create Charts
-        bar_chart_1 = {
-            'data': [{'x': avg_target[categorical], 'y': avg_target[target], 'type': 'bar'}],
-            'layout': {'title': f"Average {target} by {categorical}"}
-        }
-        bar_chart_2 = {
-            'data': [{'x': correlation['index'], 'y': correlation[target], 'type': 'bar'}],
-            'layout': {'title': f"Correlation of Features with {target}"}
-        }
-
-        return bar_chart_1, bar_chart_2
-
-    except Exception as e:
-        print(f"Error updating charts: {e}")
-        return {}, {}
+    return bar_chart_1, bar_chart_2
 
 @app.callback(
     Output('model-performance', 'children'),
@@ -154,16 +139,20 @@ def train_model(n_clicks, features, target):
 
     X = global_data[features]
     y = global_data[target]
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     pipeline = Pipeline(steps=[
         ('preprocessor', ColumnTransformer(
             transformers=[
-                ('num', StandardScaler(), features)
+                ('num', Pipeline([
+                    ('imputer', SimpleImputer(strategy='mean')),  # Handle NaNs
+                    ('scaler', StandardScaler())
+                ]), features)
             ]
         )),
         ('regressor', LinearRegression())
     ])
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     pipeline.fit(X_train, y_train)
     y_pred = pipeline.predict(X_test)
@@ -188,7 +177,10 @@ def predict_target(n_clicks, input_values, features):
     pipeline = Pipeline(steps=[
         ('preprocessor', ColumnTransformer(
             transformers=[
-                ('num', StandardScaler(), features)
+                ('num', Pipeline([
+                    ('imputer', SimpleImputer(strategy='mean')),  # Handle NaNs
+                    ('scaler', StandardScaler())
+                ]), features)
             ]
         )),
         ('regressor', LinearRegression())

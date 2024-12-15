@@ -116,7 +116,7 @@ def update_charts(target, categorical):
         avg_target = global_data.groupby(categorical)[target].mean().reset_index()
 
         # Bar Chart 2
-        numeric_data = global_data.select_dtypes(include=['number'])  s
+        numeric_data = global_data.select_dtypes(include=['number'])  
         if target not in numeric_data.columns:
             return {}, {}
 

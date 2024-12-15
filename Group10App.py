@@ -13,7 +13,7 @@ import base64
 
 # Initialize the Dash app
 app = dash.Dash(__name__)
-app.title = "Data Analysis and Prediction App"
+app.title = "Group 10's Data Analysis and Prediction App"
 
 # Global variable to store uploaded dataset
 global_data = None
@@ -112,19 +112,35 @@ def update_charts(target, categorical):
     if global_data is None or target is None or categorical is None:
         return {}, {}
 
-    avg_target = global_data.groupby(categorical)[target].mean().reset_index()
-    correlation = global_data.corr()[target].abs().sort_values(ascending=False).reset_index()
+    try:
+        # Bar Chart 1: Average Target by Category
+        if global_data[categorical].dtype not in ['object', 'category']:
+            return {}, {}  # Ensure the selected categorical variable is valid
 
-    bar_chart_1 = {
-        'data': [{'x': avg_target[categorical], 'y': avg_target[target], 'type': 'bar'}],
-        'layout': {'title': f"Average {target} by {categorical}"}
-    }
-    bar_chart_2 = {
-        'data': [{'x': correlation['index'], 'y': correlation[target], 'type': 'bar'}],
-        'layout': {'title': f"Correlation of Features with {target}"}
-    }
+        avg_target = global_data.groupby(categorical)[target].mean().reset_index()
 
-    return bar_chart_1, bar_chart_2
+        # Bar Chart 2: Correlation with Target (Numeric Columns Only)
+        numeric_data = global_data.select_dtypes(include=['number'])  # Filter only numeric columns
+        if target not in numeric_data.columns:
+            return {}, {}
+
+        correlation = numeric_data.corr()[[target]].abs().sort_values(by=target, ascending=False).reset_index()
+
+        # Create Charts
+        bar_chart_1 = {
+            'data': [{'x': avg_target[categorical], 'y': avg_target[target], 'type': 'bar'}],
+            'layout': {'title': f"Average {target} by {categorical}"}
+        }
+        bar_chart_2 = {
+            'data': [{'x': correlation['index'], 'y': correlation[target], 'type': 'bar'}],
+            'layout': {'title': f"Correlation of Features with {target}"}
+        }
+
+        return bar_chart_1, bar_chart_2
+
+    except Exception as e:
+        print(f"Error updating charts: {e}")
+        return {}, {}
 
 @app.callback(
     Output('model-performance', 'children'),
@@ -187,5 +203,6 @@ def predict_target(n_clicks, input_values, features):
 # Run the app
 if __name__ == "__main__":
     app.run_server(debug=False, host="0.0.0.0", port=8080)
+
 
 

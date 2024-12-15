@@ -151,8 +151,15 @@ def train_model(n_clicks, features, target):
         return "Please upload data, select features, and a target variable."
 
     # Prepare data
-    X = global_data[features]
+    X = global_data[features].copy()
     y = global_data[target]
+
+    # Handle missing values
+    for col in X.columns:
+        if X[col].dtype in ['float64', 'int64']:
+            X[col] = X[col].fillna(X[col].mean())  # Fill numeric columns with mean
+        elif X[col].dtype in ['object', 'category']:
+            X[col] = X[col].fillna(X[col].mode()[0])  # Fill categorical columns with mode
 
     # Encode categorical variables
     for col in X.select_dtypes(include=['object', 'category']).columns:
@@ -177,6 +184,7 @@ def train_model(n_clicks, features, target):
     r2_gbr = r2_score(y_test, y_pred)
 
     return f"Model trained. Best Gradient Boosting R² Score: {r2_gbr:.2f}"
+
 
 @app.callback(
     Output('prediction-output', 'children'),

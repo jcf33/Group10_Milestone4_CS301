@@ -95,8 +95,10 @@ def handle_upload(contents, filename):
 
     numeric_columns = [{'label': col, 'value': col} for col in global_data.select_dtypes(include=['float64', 'int64']).columns]
     categorical_columns = [{'label': col, 'value': col} for col in global_data.select_dtypes(include=['object', 'category']).columns]
+    all_columns = [{'label': col, 'value': col} for col in global_data.select_dtypes(include=['object', 'category', 'float64', 'int64']).columns]
 
-    return f"Uploaded file: {filename}", numeric_columns, categorical_columns, numeric_columns
+    return f"Uploaded file: {filename}", numeric_columns, categorical_columns, all_columns
+
 
 @app.callback(
     [Output('bar-chart-1', 'figure'),

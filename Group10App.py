@@ -1,8 +1,8 @@
 import dash
 from dash import dcc, html, Input, Output, State
 import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.preprocessing import StandardScaler
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
@@ -12,7 +12,7 @@ import base64
 
 # Initialize the Dash app
 app = dash.Dash(__name__)
-app.title = "Group 10's Data Analysis and Prediction App"
+app.title = "Data Analysis and Prediction App"
 
 # Global dataset variable
 global_data = None
@@ -113,13 +113,63 @@ def train_model(n_clicks, features, target):
 
     X = global_data[features]
     y = global_data[target]
-    pipeline = Pipeline([('scaler', StandardScaler()), ('model', LinearRegression())])
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    pipeline.fit(X_train, y_train)
-    r2 = r2_score(y_test, pipeline.predict(X_test))
+    # Define hyperparameter grid for Gradient Boosting Regressor
+    param_grid = {
+        'n_estimators': [50, 100, 200],
+        'learning_rate': [0.01, 0.1, 0.2],
+        'max_depth': [3, 5, 7],
+        'min_samples_split': [2, 5, 10]
+    }
+
+    # Define and fit the model using GridSearchCV
+    grid_search = GridSearchCV(
+        GradientBoostingRegressor(random_state=42),
+        param_grid,
+        cv=5,
+        scoring='r2'
+    )
+    grid_search.fit(X_train, y_train)
+    best_model = grid_search.best_estimator_
+
+    # Evaluate model
+    y_pred = best_model.predict(X_test)
+    r2 = r2_score(y_test, y_pred)
+
     return f"Model trained. R² Score: {r2:.2f}"
+
+# Prediction Callback
+@app.callback(
+    Output('prediction-output', 'children'),
+    Input('predict-button', 'n_clicks'),
+    [State('feature-input', 'value'),
+     State('feature-checklist', 'value')]
+)
+def predict_target(n_clicks, input_values, features):
+    if n_clicks is None or global_data is None or not features or not input_values:
+        return "Please provide input values and select features."
+
+    input_values = list(map(float, input_values.split(',')))
+    if len(input_values) != len(features):
+        return "Invalid input length. Ensure values match selected features."
+
+    pipeline = Pipeline(steps=[
+        ('preprocessor', ColumnTransformer(
+            transformers=[
+                ('num', StandardScaler(), features)
+            ]
+        )),
+        ('regressor', GradientBoostingRegressor())
+    ])
+    X = global_data[features]
+    y = global_data.iloc[:, 0]  # Replace with your target variable
+    pipeline.fit(X, y)
+    prediction = pipeline.predict([input_values])[0]
+
+    return f"Predicted Target Value: {prediction:.2f}"
 
 # Run the app
 if __name__ == "__main__":
     app.run_server(debug=False, host="0.0.0.0", port=8080)
+

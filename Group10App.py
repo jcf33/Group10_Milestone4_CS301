@@ -90,13 +90,19 @@ def handle_upload(contents, filename):
         return "", [], [], []
 
     content_type, content_string = contents.split(',')
-    decoded = base64.b64decode(content_string)  
-    global_data = pd.read_csv(io.StringIO(decoded.decode('utf-8')))  
+    decoded = base64.b64decode(content_string)
+    global_data = pd.read_csv(io.StringIO(decoded.decode('utf-8')))
 
+    # Encode categorical variables to numeric for processing
+    for col in global_data.select_dtypes(include=['object', 'category']).columns:
+        global_data[col], _ = global_data[col].factorize()
+
+    # Identify numeric and categorical columns after encoding
     numeric_columns = [{'label': col, 'value': col} for col in global_data.select_dtypes(include=['float64', 'int64']).columns]
-    categorical_columns = [{'label': col, 'value': col} for col in global_data.select_dtypes(include=['object', 'category']).columns]
+    categorical_columns = [{'label': col, 'value': col} for col in global_data.select_dtypes(include=['int']).columns if col not in numeric_columns]
 
     return f"Uploaded file: {filename}", numeric_columns, categorical_columns, numeric_columns
+
 
 @app.callback(
     [Output('bar-chart-1', 'figure'),
@@ -148,24 +154,14 @@ def train_model(n_clicks, features, target):
     if n_clicks is None or global_data is None or not features or not target:
         return "Please upload data, select features, and a target variable."
 
-    # Prepping the data
     X = global_data[features].copy()
     y = global_data[target]
 
-    # missing values handling
-    for col in X.columns:
-        if X[col].dtype in ['float64', 'int64']:
-            X[col] = X[col].fillna(X[col].mean())  
-        elif X[col].dtype in ['object', 'category']:
-            X[col] = X[col].fillna(X[col].mode()[0])  
-
-    # Encode categorical variables
-    for col in X.select_dtypes(include=['object', 'category']).columns:
-        X[col] = X[col].factorize()[0]
+    # Handle missing values
+    X.fillna(X.mean(), inplace=True)
 
     # Train-test split
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
     # Gradient Boosting Regressor with Grid Search
     param_grid_gbr = {
         'n_estimators': [50, 100, 200],
